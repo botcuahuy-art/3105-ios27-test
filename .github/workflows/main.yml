@@ -1,0 +1,33 @@
+name: Build unsigned 3105 diagnostics (read-only)
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify diagnostic-only build flag
+        shell: bash
+        run: |
+          grep -q 'DIAGNOSTIC_BUILD' ThreeOneOSFive.xcodeproj/project.pbxproj
+          grep -q '#if DIAGNOSTIC_BUILD' ThreeOneOSFive/App.swift
+          grep -q '#if DIAGNOSTIC_BUILD' ThreeOneOSFive/helpers/KernelExploit.swift
+      - name: Build unsigned iOS app
+        run: |
+          xcodebuild -project ThreeOneOSFive.xcodeproj -scheme 3105 -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/build" \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Package unsigned IPA
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -R "$RUNNER_TEMP/build/Build/Products/Release-iphoneos/3105.app" "$RUNNER_TEMP/Payload/"
+          (cd "$RUNNER_TEMP" && zip -qr "$GITHUB_WORKSPACE/3105-ios27-diagnostic-unsigned.ipa" Payload)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 3105-ios27-diagnostic-unsigned
+          path: 3105-ios27-diagnostic-unsigned.ipa
+          retention-days: 7
